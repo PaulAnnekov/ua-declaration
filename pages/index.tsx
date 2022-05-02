@@ -253,7 +253,7 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.png" />
       </Head>
       <header className="py-4 d-flex align-items-center">
-        <Image src={icon} width={48} height={48}></Image>
+        <Image src={icon} width={48} height={48} alt="icon"></Image>
         <span className="fs-4 ms-2">Податкова декларація</span>
       </header>
       <Container>
@@ -265,7 +265,7 @@ const Home: NextPage = () => {
             <p>
               Щороку до 1 травня ви можете добровільно подати декларацію про майновий стан за попередній рік. Якщо у вас є
               доходи, про які податкова не знає, припустимо, ви торгували акціями через іноземного брокера, то декларацію 
-              подавати <strong>обов'язково</strong>. У декларації зазначаються не лише всі доходи за попередній рік 
+              подавати <strong>обов&apos;язково</strong>. У декларації зазначаються не лише всі доходи за попередній рік 
               (зарплата, доходи ФОП, облігації, дивіденди, депозити, ...), але й майно оформлене на вас (авто, квартири, 
               яхти, ...).
             </p>
@@ -284,7 +284,7 @@ const Home: NextPage = () => {
           <Col lg={8} md={12}>
             <ol>
               <li>
-                Подайте "Запит про суми виплачених доходів" через <a href="https://cabinet.tax.gov.ua/individual">Електронний кабінет платника податків</a>
+                Подайте &quot;Запит про суми виплачених доходів&quot; через <a href="https://cabinet.tax.gov.ua/individual">Електронний кабінет платника податків</a>
               </li>
               <li>
                 Завантажте отриманий звіт F1401803: <input type="file" onChange={onFileChange} accept=".xml" />
