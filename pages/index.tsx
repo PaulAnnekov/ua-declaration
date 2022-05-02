@@ -15,6 +15,7 @@ const MILITARY_TAX_RATE = new Decimal('0.015');
 // 127 - кешбек привата
 // 129 - ОВДП
 // 110 - корпоративні облігації
+// 151 - Сума страхової виплати
 // 157 - виплата на ФОП
 // 512 - податкова декларація
 
@@ -22,6 +23,7 @@ enum TYPE {
   'CASHBACK_DEPOSIT',
   'GOVERNMENT_BOND',
   'CORPORATE_BOND',
+  'MEDICAL_INSURANCE',
   'OTHER'
 }
 
@@ -30,6 +32,7 @@ const taxCodeToType: { [key: number]: TYPE; } = {
   126: TYPE.CASHBACK_DEPOSIT,
   127: TYPE.CASHBACK_DEPOSIT,
   129: TYPE.GOVERNMENT_BOND,
+  151: TYPE.MEDICAL_INSURANCE,
 }
 
 interface IncomeRecord {
@@ -234,7 +237,7 @@ const Home: NextPage = () => {
       declarationNumbers.taxPdfoOtherIncome = declarationNumbers.taxPdfoOtherIncome.plus(record.taxPdfoPaid);
       declarationNumbers.taxMilitaryOtherIncome = declarationNumbers.taxMilitaryOtherIncome.plus(record.taxMilitaryPaid);
     }
-    if (TYPE.GOVERNMENT_BOND === type) {
+    if ([TYPE.GOVERNMENT_BOND, TYPE.MEDICAL_INSURANCE].includes(type)) {
       declarationNumbers.noTaxIncome = declarationNumbers.noTaxIncome.plus(record.incomeAccrued);
     }
     if (filter.size > 0 && !filter.has(type)) {
@@ -291,8 +294,8 @@ const Home: NextPage = () => {
               </li>
               <li>
                 Отримайте згруповані суми доходів та податки для рядків 10.10 та 11.3 податкової декларації. <u>Перед 
-                внесенням даних до декларації перевірте, чи не проігнорував наш сервіс якісь доходи для цих рядків</u>. 
-                <strong>Розробник не несе відповідальності за неправильні дані в декларації</strong> 
+                внесенням даних до декларації перевірте, чи не проігнорував наш сервіс якісь доходи для цих 
+                рядків</u>. <strong>Розробник не несе відповідальності за неправильні дані в декларації</strong> 
               </li>
             </ol>
             <p>Якщо ви знайшли помилку або у вас є пропозиції, пишіть мені <a href="mailto:paul.annekov+ua-declaration@gmail.com">на пошту</a>.</p>
@@ -397,6 +400,12 @@ const Home: NextPage = () => {
                 <label>
                   <input className="form-check-input" type="checkbox" onChange={(event) => filterChange(event, TYPE.GOVERNMENT_BOND)} checked={filter.has(TYPE.GOVERNMENT_BOND)} />
                   Державні облігації (11.3)
+                </label>
+              </div>
+              <div className="form-check form-check-inline">
+                <label>
+                  <input className="form-check-input" type="checkbox" onChange={(event) => filterChange(event, TYPE.MEDICAL_INSURANCE)} checked={filter.has(TYPE.MEDICAL_INSURANCE)} />
+                  Мед. страхування (11.3)
                 </label>
               </div>
               <div className="form-check form-check-inline">
