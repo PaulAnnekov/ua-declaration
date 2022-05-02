@@ -1,27 +1,14 @@
 import type { NextPage } from 'next'
 import Head from 'next/head'
 import { XMLParser } from 'fast-xml-parser'
-import { Container, Row, Card, Button, Col } from 'react-bootstrap'
-import styles from '../styles/Home.module.css'
-import { ChangeEvent, Fragment, useState } from 'react'
+import { Container, Row, Col, ToastContainer, Alert } from 'react-bootstrap'
+import { ChangeEvent, useState } from 'react'
 import Decimal from 'decimal.js'
+import icon from '../public/icon.svg'
+import Image from 'next/image'
+import Toast, { TOAST_TYPE } from '../components/toast'
 
 const MILITARY_TAX_RATE = new Decimal('0.015');
-
-const months: { [key: string]: number; } = {
-  'Січень': 1,
-  'Лютий': 2,
-  'Березень': 3,
-  'Квітень': 4,
-  'Травень': 5,
-  'Червень': 6,
-  'Липень': 7,
-  'Серпень': 8,
-  'Вересень': 9,
-  'Жовтень': 10,
-  'Листопад': 11,
-  'Грудень': 12,
-}
 
 // 111 - виграші та призи (мінфін)
 // 126 - кешбек/депозит
@@ -58,14 +45,24 @@ interface IncomeRecord {
 }
 
 interface Totals {
-  incomePaid: Decimal;
+  incomeAccrued: Decimal;
   taxPdfoPaid: Decimal;
   taxMilitaryPaid: Decimal;
 }
 
 interface XmlSchema {
   DECLAR: {
+    /** form code, must be "F1401803.XSD" */
+    '@_xsi:noNamespaceSchemaLocation': string;
     DECLARBODY: {
+      /** quarter from */
+      R0401G1: number;
+      /** year from */
+      R0401G2: number;
+      /** quarter to */
+      R0401G3: number;
+      /** year to */
+      R0401G4: number;
       /** day and month */
       T1RXXXXG3S: { 
         '#text': string, 
@@ -111,35 +108,15 @@ interface XmlSchema {
 }
 
 const Home: NextPage = () => {
-  const [income, setIncome] = useState<IncomeRecord[]>([]);
+  const [xmlForm, setXmlForm] = useState<XmlSchema>();
   const [filter, setFilter] = useState<Set<TYPE>>(new Set());
+  const [error, setError] = useState<string>();
 
   function formatDecimal(value: Decimal) {
     return `${new Intl.NumberFormat().format(value.toNumber())} ₴`;
   }
 
-  async function onFileChange(event: any) {
-    const file = event.target.files[0];
-    if (file.type !== 'text/xml') {
-      console.log('File is not an image.', file.type, file);
-      return;
-    }
-
-    const reader = new FileReader();
-    const filePromise = new Promise<string>((resolve, reject) => {
-      reader.addEventListener('load', (event) => {
-        if (!event.target) {
-          return reject(new Error('No target'));
-        }
-        resolve(event.target.result as string);
-      });  
-    });
-    reader.readAsText(file, 'cp1251');
-    const text = await filePromise;
-    const parser = new XMLParser({
-      ignoreAttributes: false
-    });
-    const xmlObject = parser.parse(text) as XmlSchema;
+  function getIncomes(xmlObject: XmlSchema) {
     const body = xmlObject.DECLAR.DECLARBODY;
     const incomes: IncomeRecord[] = [];
     body.T1RXXXXG3S.forEach(({ '#text': date, '@_ROWNUM': row }) => {
@@ -159,7 +136,62 @@ const Home: NextPage = () => {
         taxCode: +taxCode,
       });
     });
-    setIncome(incomes);
+
+    return incomes;
+  }
+
+  async function onFileChange(event: any) {
+    if (!event.target.files.length) {
+      return;
+    }
+    const file = event.target.files[0];
+    if (file.type !== 'text/xml') {
+      setError("Тип файлу не є XML");
+      return;
+    }
+
+    const reader = new FileReader();
+    const filePromise = new Promise<string>((resolve, reject) => {
+      reader.addEventListener('load', (event) => {
+        if (!event.target) {
+          return reject(new Error('No target'));
+        }
+        resolve(event.target.result as string);
+      });  
+    });
+    reader.readAsText(file, 'windows-1251');
+    let text;
+    try {
+      text = await filePromise;
+    } catch(e) {
+      setError("Не вдалося прочитати файл");
+      console.error(e);
+      return;
+    }
+    const parser = new XMLParser({
+      ignoreAttributes: false
+    });
+    let xmlObject;
+    try {
+      xmlObject = parser.parse(text) as XmlSchema;
+    } catch(e) {
+      setError("Формат контенту файлу не є XML");
+      console.error(e);
+      return;
+    }
+    if (xmlObject.DECLAR['@_xsi:noNamespaceSchemaLocation'] !== 'F1401803.XSD') {
+      setError("Файл не є формою F1401803");
+      return;
+    }
+    try {
+      getIncomes(xmlObject);
+    } catch(e) {
+      setError("Не вдалося прочитати дані з файлу, напишіть розробнику");
+      console.error(e);
+      return;
+    }
+    setError(undefined);
+    setXmlForm(xmlObject);
   }
 
   function filterChange({ target }: ChangeEvent<HTMLInputElement>, type: TYPE) {
@@ -168,19 +200,48 @@ const Home: NextPage = () => {
     setFilter(newFilter);
   }
 
+  let income: IncomeRecord[] = [];
+  let from: string = '';
+  let to: string = '';
+  let isWaryPeriod = false;
+  if (xmlForm) {
+    income = getIncomes(xmlForm);
+    const body = xmlForm.DECLAR.DECLARBODY;
+    from = `${body.R0401G1} кв ${body.R0401G2}`;
+    to = `${body.R0401G3} кв ${body.R0401G4}`;
+    if (body.R0401G2 !== body.R0401G4 || body.R0401G1 !== 1 || body.R0401G3 !== 4) {
+      isWaryPeriod = true;
+    }
+  }
+
+
   const filteredIncome: IncomeRecord[] = [];
+  const declarationNumbers = {
+    otherIncome: new Decimal(0),
+    taxPdfoOtherIncome: new Decimal(0),
+    taxMilitaryOtherIncome: new Decimal(0),
+    noTaxIncome: new Decimal(0),
+  };
   const totals: Totals = {
-    incomePaid: new Decimal(0),
+    incomeAccrued: new Decimal(0),
     taxPdfoPaid: new Decimal(0),
     taxMilitaryPaid: new Decimal(0),
   };
   income.forEach((record) => {
     const type = taxCodeToType[record.taxCode] !== undefined ? taxCodeToType[record.taxCode] : TYPE.OTHER;
+    if ([TYPE.CASHBACK_DEPOSIT, TYPE.CORPORATE_BOND].includes(type)) {
+      declarationNumbers.otherIncome = declarationNumbers.otherIncome.plus(record.incomeAccrued);
+      declarationNumbers.taxPdfoOtherIncome = declarationNumbers.taxPdfoOtherIncome.plus(record.taxPdfoPaid);
+      declarationNumbers.taxMilitaryOtherIncome = declarationNumbers.taxMilitaryOtherIncome.plus(record.taxMilitaryPaid);
+    }
+    if (TYPE.GOVERNMENT_BOND === type) {
+      declarationNumbers.noTaxIncome = declarationNumbers.noTaxIncome.plus(record.incomeAccrued);
+    }
     if (filter.size > 0 && !filter.has(type)) {
       return;
     }
     filteredIncome.push(record);
-    totals.incomePaid = totals.incomePaid.plus(record.incomePaid);
+    totals.incomeAccrued = totals.incomeAccrued.plus(record.incomeAccrued);
     totals.taxPdfoPaid = totals.taxPdfoPaid.plus(record.taxPdfoPaid);
     totals.taxMilitaryPaid = totals.taxMilitaryPaid.plus(record.taxMilitaryPaid);
   });
@@ -189,27 +250,136 @@ const Home: NextPage = () => {
     <Container className="md-container d-flex flex-column min-vh-100">
       <Head>
         <title>Податкова декларація</title>
-        <link rel="icon" href="/favicon-32x32.png" />
+        <link rel="icon" href="/favicon.png" />
       </Head>
-      <header className="py-4">
-        <span className="fs-4">Податкова декларація</span>
+      <header className="py-4 d-flex align-items-center">
+        <Image src={icon} width={48} height={48}></Image>
+        <span className="fs-4 ms-2">Податкова декларація</span>
       </header>
       <Container>
         <Row>
-          <Col md={5} sm={12}>
+          <Col><h2>Що це та як користуватись?</h2></Col>
+        </Row>
+        <Row>
+          <Col>
+            <p>
+              Щороку до 1 травня ви можете добровільно подати декларацію про майновий стан за попередній рік. Якщо у вас є
+              доходи, про які податкова не знає, припустимо, ви торгували акціями через іноземного брокера, то декларацію 
+              подавати <strong>обов'язково</strong>. У декларації зазначаються не лише всі доходи за попередній рік 
+              (зарплата, доходи ФОП, облігації, дивіденди, депозити, ...), але й майно оформлене на вас (авто, квартири, 
+              яхти, ...).
+            </p>
+            <p>
+              Більш детально про процедуру подання декларації сказано у <a href="https://www.youtube.com/watch?v=sV7c_myExiM">цьому відео</a>.
+            </p>
+            <p>
+              Цей сервіс спростить збирання даних для декларації. На основі виписки про доходи він згрупує та підрахує 
+              доходи за категоріями. Вам залишиться лише перенести ці дані до декларації. Він орієнтований на 
+              інвесторів, тому аналізує лише доходи, що відносяться до інвестиційної діяльності (корпоративні та 
+              державні облігації, депозити, кешбеки).
+            </p>
+          </Col>
+        </Row>
+        <Row>
+          <Col lg={8} md={12}>
             <ol>
               <li>
-                Подайте запит та отримайте &quot;Відомість з Державного реєстру фізичних осіб - платників податків про суми виплачених доходів та утриманих податків&quot; (F1401803)
+                Подайте "Запит про суми виплачених доходів" через <a href="https://cabinet.tax.gov.ua/individual">Електронний кабінет платника податків</a>
               </li>
               <li>
-                Завантажте відомість та отримайте зручний звіт по сумах <br />
-                <input type="file" onChange={onFileChange} accept=".xml" />
+                Завантажте отриманий звіт F1401803: <input type="file" onChange={onFileChange} accept=".xml" />
+              </li>
+              <li>
+                Отримайте згруповані суми доходів та податки для рядків 10.10 та 11.3 податкової декларації. <u>Перед 
+                внесенням даних до декларації перевірте, чи не проігнорував наш сервіс якісь доходи для цих рядків</u>. 
+                <strong>Розробник не несе відповідальності за неправильні дані в декларації</strong> 
               </li>
             </ol>
+            <p>Якщо ви знайшли помилку або у вас є пропозиції, пишіть мені <a href="mailto:paul.annekov+ua-declaration@gmail.com">на пошту</a>.</p>
           </Col>
         </Row>
         {!!income.length && <Row>
-          <Col className="mt-5">
+          <Col>
+            <h2>Дані для декларації <small className="text-muted fs-5">{from} - {to}</small></h2>
+          </Col>
+        </Row>}
+        {isWaryPeriod && <Row>
+          <Col>
+            <Alert variant="warning">
+              Файл звіту має підозрілий період формування. Зазвичай він формується з першого по останній квартал 
+              минулого року. Сподіваємось ви знаєте що робите. 
+            </Alert>  
+          </Col>
+        </Row>}
+        {!!income.length && <Row>
+          <Col>
+            <table className="table table-bordered">
+              <thead className="text-center">
+                <tr>
+                  <th scope="col" rowSpan={3}>Код рядка</th>
+                  <th scope="col" rowSpan={3}>ІІ. ДОХОДИ, ЯКІ ВКЛЮЧАЮТЬСЯ ДО ЗАГАЛЬНОГО РІЧНОГО ОПОДАТКОВУВАНОГО ДОХОДУ</th>
+                  <th scope="col" rowSpan={3}>Сума доходів (грн, коп.)</th>
+                  <th scope="col" colSpan={4}>Сума податку/збору (грн, коп.)</th>
+                </tr>
+                <tr>
+                  <th scope="col" colSpan={2}>утриманого (сплаченого) податковим агентом</th>
+                  <th scope="col" colSpan={2}>що підлягає сплаті самостійно</th>
+                </tr>
+                <tr>
+                  <th scope="col">податок на доходи фізичних осіб</th>
+                  <th scope="col">військовий збір</th>
+                  <th scope="col">податок на доходи фізичних осіб</th>
+                  <th scope="col">військовий збір</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={6}>...</td>
+                </tr>
+                <tr>
+                  <td>10.10</td>
+                  <td>Інші доходи, у тому числі:</td>
+                  <td className="text-end">{declarationNumbers.otherIncome.toString()}</td>
+                  <td className="text-end">{declarationNumbers.taxPdfoOtherIncome.toString()}</td>
+                  <td className="text-end">{declarationNumbers.taxMilitaryOtherIncome.toString()}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td colSpan={6}>...</td>
+                </tr>
+              </tbody>
+            </table>
+          </Col>
+        </Row>}
+        {!!income.length && <Row>
+          <Col>
+            <table className="table table-bordered">
+              <thead className="text-center">
+                <tr>
+                  <th scope="col">Код рядка</th>
+                  <th scope="col">ІІІ. ДОХОДИ, ЯКІ НЕ ВКЛЮЧАЮТЬСЯ ДО ЗАГАЛЬНОГО РІЧНОГО ОПОДАТКОВУВАНОГО ДОХОДУ</th>
+                  <th scope="col">Сума доходів (грн, коп.)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={3}>...</td>
+                </tr>
+                <tr>
+                  <td>11.3</td>
+                  <td>Інші доходи, що не підлягають оподаткуванню</td>
+                  <td className="text-end">{declarationNumbers.noTaxIncome.toString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </Col>
+        </Row>}
+        {!!income.length && <Row>
+          <Col><h2>Деталізація</h2></Col>
+        </Row>}
+        {!!income.length && <Row>
+          <Col>
             <form>
               <div className="form-check form-check-inline">
                 <label>
@@ -240,7 +410,7 @@ const Home: NextPage = () => {
         </Row>}
         {!!income.length && <Row>
           <Col>
-          <table className="table">
+          <table className="table table-hover">
             <thead>
               <tr>
                 <th scope="col">Дата</th>
@@ -273,8 +443,8 @@ const Home: NextPage = () => {
               <tr>
                 <td></td>
                 <td></td>
+                <td>{formatDecimal(totals.incomeAccrued)}</td>
                 <td></td>
-                <td>{formatDecimal(totals.incomePaid)}</td>
                 <td></td>
                 <td>{formatDecimal(totals.taxPdfoPaid)}</td>
                 <td>{formatDecimal(totals.taxMilitaryPaid)}</td>
@@ -285,6 +455,9 @@ const Home: NextPage = () => {
           </Col>
         </Row>}
       </Container>
+      <ToastContainer className="p-3" position="top-center">
+        {error && <Toast onClose={() => setError(undefined)} show={!!error} type={TOAST_TYPE.Error} body={error} /> }
+      </ToastContainer>
       <footer className="mt-auto py-3">
         <a href="https://paul.annekov.com/">Павло Аннеков</a> 🇺🇦 2022
       </footer>

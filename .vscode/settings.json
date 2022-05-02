@@ -2,8 +2,14 @@
     "cSpell.words": [
         "DECLAR",
         "DECLARBODY",
+        "gtag",
+        "pageview",
+        "Pdfo",
         "ROWNUM",
         "RXXXXG",
         "кешбек"
+    ],
+    "editor.rulers": [
+        120
     ]
 }
