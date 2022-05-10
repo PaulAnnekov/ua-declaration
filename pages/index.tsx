@@ -290,7 +290,7 @@ const Home: NextPage = () => {
                 Подайте &quot;Запит про суми виплачених доходів&quot; через <a href="https://cabinet.tax.gov.ua/individual">Електронний кабінет платника податків</a>
               </li>
               <li>
-                Завантажте отриманий звіт F1401803: <input type="file" onChange={onFileChange} accept=".xml" />
+                Завантажте отриманий у форматі <strong>xml</strong> звіт F1401803: <input type="file" onChange={onFileChange} accept=".xml" />
               </li>
               <li>
                 Отримайте згруповані суми доходів та податки для рядків 10.10 та 11.3 податкової декларації. <u>Перед 
