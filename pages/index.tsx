@@ -182,7 +182,7 @@ const Home: NextPage = () => {
       console.error(e);
       return;
     }
-    if (xmlObject.DECLAR['@_xsi:noNamespaceSchemaLocation'] !== 'F1401803.XSD') {
+    if (xmlObject.DECLAR['@_xsi:noNamespaceSchemaLocation'].toLowerCase() !== 'f1401803.xsd') {
       setError("Файл не є формою F1401803");
       return;
     }
