@@ -17,6 +17,7 @@ const MILITARY_TAX_RATE = new Decimal('0.015');
 // 110 - корпоративні облігації
 // 151 - Сума страхової виплати
 // 157 - виплата на ФОП
+// 183 - ОВДП (не зрозуміло як відрізняється від 129)
 // 512 - податкова декларація
 
 enum TYPE {
@@ -32,6 +33,7 @@ const taxCodeToType: { [key: number]: TYPE; } = {
   126: TYPE.CASHBACK_DEPOSIT,
   127: TYPE.CASHBACK_DEPOSIT,
   129: TYPE.GOVERNMENT_BOND,
+  183: TYPE.GOVERNMENT_BOND,
   151: TYPE.MEDICAL_INSURANCE,
 }
 
@@ -293,7 +295,7 @@ const Home: NextPage = () => {
                 Завантажте отриманий у форматі <strong>xml</strong> звіт F1401803: <input type="file" onChange={onFileChange} accept=".xml" />
               </li>
               <li>
-                Отримайте згруповані суми доходів та податки для рядків 10.10 та 11.3 податкової декларації. <u>Перед 
+                Отримайте згруповані суми доходів та податки для рядків 10.13 та 11.3 податкової декларації. <u>Перед 
                 внесенням даних до декларації перевірте, чи не проігнорував наш сервіс якісь доходи для цих 
                 рядків</u>. <strong>Розробник не несе відповідальності за неправильні дані в декларації</strong> 
               </li>
@@ -340,7 +342,7 @@ const Home: NextPage = () => {
                   <td colSpan={6}>...</td>
                 </tr>
                 <tr>
-                  <td>10.10</td>
+                  <td>10.13</td>
                   <td>Інші доходи, у тому числі:</td>
                   <td className="text-end">{declarationNumbers.otherIncome.toString()}</td>
                   <td className="text-end">{declarationNumbers.taxPdfoOtherIncome.toString()}</td>
@@ -387,13 +389,13 @@ const Home: NextPage = () => {
               <div className="form-check form-check-inline">
                 <label>
                   <input className="form-check-input" type="checkbox" onChange={(event) => filterChange(event, TYPE.CASHBACK_DEPOSIT)} checked={filter.has(TYPE.CASHBACK_DEPOSIT)} />
-                  Депозити та кешбеки (10.10)
+                  Депозити та кешбеки (10.13)
                 </label>
               </div>
               <div className="form-check form-check-inline">
                 <label>
                   <input className="form-check-input" type="checkbox" onChange={(event) => filterChange(event, TYPE.CORPORATE_BOND)} checked={filter.has(TYPE.CORPORATE_BOND)} />
-                  Корпоративні облігації (10.10)
+                  Корпоративні облігації (10.13)
                 </label>
               </div>
               <div className="form-check form-check-inline">
