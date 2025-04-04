@@ -28,12 +28,16 @@ enum TYPE {
   'CORPORATE_BOND',
   'MEDICAL_INSURANCE',
   'FOP',
+  'DIIA_CITY',
+  'INVESTMENTS_INCOME',
   'OTHER'
 }
 
-const taxCodeToType: { [key: number]: TYPE; } = {
+const taxCodeToType: Record<number, TYPE> = {
+  101: TYPE.DIIA_CITY,
   109: TYPE.DIVIDENDS,
   110: TYPE.CORPORATE_BOND,
+  112: TYPE.INVESTMENTS_INCOME,
   126: TYPE.CASHBACK_DEPOSIT,
   127: TYPE.CASHBACK_DEPOSIT,
   129: TYPE.GOVERNMENT_BOND,
@@ -193,8 +197,8 @@ const Home: NextPage = () => {
       console.error(e);
       return;
     }
-    if (xmlObject.DECLAR['@_xsi:noNamespaceSchemaLocation'].toLowerCase() !== 'f1419103.xsd') {
-      setError("Файл не є формою F1419103");
+    if (xmlObject.DECLAR['@_xsi:noNamespaceSchemaLocation'].toLowerCase() !== 'f1419104.xsd') {
+      setError("Файл не є формою F1419104");
       return;
     }
     try {
@@ -236,6 +240,16 @@ const Home: NextPage = () => {
       taxPdfoPaid: new Decimal(0),
       taxMilitaryPaid: new Decimal(0),
     },
+    diiaCity: {
+      incomeAccrued: new Decimal(0),
+      taxPdfoPaid: new Decimal(0),
+      taxMilitaryPaid: new Decimal(0),
+    },
+    investmentsIncome: {
+      incomeAccrued: new Decimal(0),
+      taxPdfoPaid: new Decimal(0),
+      taxMilitaryPaid: new Decimal(0),
+    },
     other: {
       incomeAccrued: new Decimal(0),
       taxPdfoPaid: new Decimal(0),
@@ -257,6 +271,18 @@ const Home: NextPage = () => {
       declarationNumbers.dividends.incomeAccrued = declarationNumbers.dividends.incomeAccrued.plus(record.incomeAccrued);
       declarationNumbers.dividends.taxPdfoPaid = declarationNumbers.dividends.taxPdfoPaid.plus(record.taxPdfoPaid);
       declarationNumbers.dividends.taxMilitaryPaid = declarationNumbers.dividends.taxMilitaryPaid.plus(record.taxMilitaryPaid);
+    }
+
+    if (type === TYPE.DIIA_CITY) {
+      declarationNumbers.diiaCity.incomeAccrued = declarationNumbers.diiaCity.incomeAccrued.plus(record.incomeAccrued);
+      declarationNumbers.diiaCity.taxPdfoPaid = declarationNumbers.diiaCity.taxPdfoPaid.plus(record.taxPdfoPaid);
+      declarationNumbers.diiaCity.taxMilitaryPaid = declarationNumbers.diiaCity.taxMilitaryPaid.plus(record.taxMilitaryPaid);
+    }
+
+    if (type === TYPE.INVESTMENTS_INCOME) {
+      declarationNumbers.investmentsIncome.incomeAccrued = declarationNumbers.investmentsIncome.incomeAccrued.plus(record.incomeAccrued);
+      declarationNumbers.investmentsIncome.taxPdfoPaid = declarationNumbers.investmentsIncome.taxPdfoPaid.plus(record.taxPdfoPaid);
+      declarationNumbers.investmentsIncome.taxMilitaryPaid = declarationNumbers.investmentsIncome.taxMilitaryPaid.plus(record.taxMilitaryPaid);
     }
 
     if (type === TYPE.FOP) {
@@ -371,6 +397,18 @@ const Home: NextPage = () => {
                   <td colSpan={7}>...</td>
                 </tr>
                 <tr>
+                  <td>10.3</td>
+                  <td>Дохід, нарахований (виплачений, наданий) спеціалісту резидента Дія Сіті у вигляді заробітної
+                    плати чи винагороди, що нараховується (виплачується, надається) платнику податку у зв'язку
+                    з трудовими відносинами чи у зв'язку з виконанням гіг-контракту:
+                  </td>
+                  <td className="text-end">{declarationNumbers.diiaCity.incomeAccrued.toString()}</td>
+                  <td className="text-end">{declarationNumbers.diiaCity.taxPdfoPaid.toString()}</td>
+                  <td className="text-end">{declarationNumbers.diiaCity.taxMilitaryPaid.toString()}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                <tr>
                   <td>10.4</td>
                   <td>Дохід, отриманий у вигляді дивідендів, крім сум дивідендів по акціях та/або інвестиційних
                     сертифікатах, корпоративних правах, нарахованих нерезидентами, та дивідендів, що не включаються
@@ -379,6 +417,18 @@ const Home: NextPage = () => {
                   <td className="text-end">{declarationNumbers.dividends.incomeAccrued.toString()}</td>
                   <td className="text-end">{declarationNumbers.dividends.taxPdfoPaid.toString()}</td>
                   <td className="text-end">{declarationNumbers.dividends.taxMilitaryPaid.toString()}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td colSpan={7}>...</td>
+                </tr>
+                <tr>
+                  <td>10.8</td>
+                  <td>Інвестиційний прибуток (додаток Ф1)</td>
+                  <td className="text-end">{declarationNumbers.investmentsIncome.incomeAccrued.toString()}</td>
+                  <td className="text-end">{declarationNumbers.investmentsIncome.taxPdfoPaid.toString()}</td>
+                  <td className="text-end">{declarationNumbers.investmentsIncome.taxMilitaryPaid.toString()}</td>
                   <td></td>
                   <td></td>
                 </tr>
@@ -438,12 +488,28 @@ const Home: NextPage = () => {
         {!!income.length && <Row>
           <Col>
             <form>
-            <div className="form-check form-check-inline">
+              <div className="form-check form-check-inline">
+                <label>
+                  <input className="form-check-input" type="checkbox"
+                         onChange={(event) => filterChange(event, TYPE.DIIA_CITY)}
+                         checked={filter.has(TYPE.DIIA_CITY)} />
+                  Дія.Сіті (10.3)
+                </label>
+              </div>
+              <div className="form-check form-check-inline">
                 <label>
                   <input className="form-check-input" type="checkbox"
                          onChange={(event) => filterChange(event, TYPE.DIVIDENDS)}
                          checked={filter.has(TYPE.DIVIDENDS)} />
                   Дивіденди (10.4)
+                </label>
+              </div>
+              <div className="form-check form-check-inline">
+                <label>
+                  <input className="form-check-input" type="checkbox"
+                         onChange={(event) => filterChange(event, TYPE.INVESTMENTS_INCOME)}
+                         checked={filter.has(TYPE.INVESTMENTS_INCOME)} />
+                  Інвестиційний прибуток (10.8)
                 </label>
               </div>
               <div className="form-check form-check-inline">
