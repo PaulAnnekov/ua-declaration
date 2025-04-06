@@ -27,6 +27,7 @@ enum TYPE {
   'GOVERNMENT_BOND',
   'CORPORATE_BOND',
   'MEDICAL_INSURANCE',
+  'BORROW',
   'FOP',
   'DIIA_CITY',
   'INVESTMENTS_INCOME',
@@ -43,6 +44,7 @@ const taxCodeToType: Record<number, TYPE> = {
   129: TYPE.GOVERNMENT_BOND,
   183: TYPE.GOVERNMENT_BOND,
   151: TYPE.MEDICAL_INSURANCE,
+  153: TYPE.BORROW,
   512: TYPE.FOP,
 }
 
@@ -69,12 +71,12 @@ interface XmlSchema {
     /** form code, must be "F1401803.XSD" */
     '@_xsi:noNamespaceSchemaLocation': string;
     DECLARBODY: {
-      /** quarter from */
-      R0401G1: number;
+      /** month from */
+      R0401G1S: string;
       /** year from */
       R0401G2: number;
-      /** quarter to */
-      R0401G3: number;
+      /** month to */
+      R0401G3S: string;
       /** year to */
       R0401G4: number;
       /** day and month */
@@ -225,9 +227,9 @@ const Home: NextPage = () => {
   if (xmlForm) {
     income = getIncomes(xmlForm);
     const body = xmlForm.DECLAR.DECLARBODY;
-    from = `${body.R0401G1} кв ${body.R0401G2}`;
-    to = `${body.R0401G3} кв ${body.R0401G4}`;
-    if (body.R0401G2 !== body.R0401G4 || body.R0401G1 !== 1 || body.R0401G3 !== 4) {
+    from = `${body.R0401G1S} ${body.R0401G2}`;
+    to = `${body.R0401G3S} ${body.R0401G4}`;
+    if (body.R0401G2 !== body.R0401G4 || body.R0401G1S !== 'січень' || body.R0401G3S !== 'грудень') {
       isWaryPeriod = true;
     }
   }
@@ -294,7 +296,7 @@ const Home: NextPage = () => {
       declarationNumbers.other.taxPdfoPaid = declarationNumbers.other.taxPdfoPaid.plus(record.taxPdfoPaid);
       declarationNumbers.other.taxMilitaryPaid = declarationNumbers.other.taxMilitaryPaid.plus(record.taxMilitaryPaid);
     }
-    if ([TYPE.GOVERNMENT_BOND, TYPE.MEDICAL_INSURANCE].includes(type)) {
+    if ([TYPE.GOVERNMENT_BOND, TYPE.MEDICAL_INSURANCE, TYPE.BORROW].includes(type)) {
       declarationNumbers.noTaxIncome = declarationNumbers.noTaxIncome.plus(record.incomeAccrued);
     }
     if (filter.size > 0 && !filter.has(type)) {
@@ -542,6 +544,14 @@ const Home: NextPage = () => {
                          onChange={(event) => filterChange(event, TYPE.MEDICAL_INSURANCE)}
                          checked={filter.has(TYPE.MEDICAL_INSURANCE)} />
                   Мед. страхування (11.3)
+                </label>
+              </div>
+              <div className="form-check form-check-inline">
+                <label>
+                  <input className="form-check-input" type="checkbox"
+                         onChange={(event) => filterChange(event, TYPE.BORROW)}
+                         checked={filter.has(TYPE.BORROW)} />
+                  Займи (11.3)
                 </label>
               </div>
               <div className="form-check form-check-inline">
