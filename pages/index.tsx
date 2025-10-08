@@ -26,6 +26,7 @@ enum TYPE {
   'CASHBACK_DEPOSIT',
   'GOVERNMENT_BOND',
   'CORPORATE_BOND',
+  'RETIREMENT',
   'MEDICAL_INSURANCE',
   'BORROW',
   'FOP',
@@ -39,12 +40,14 @@ const taxCodeToType: Record<number, TYPE> = {
   109: TYPE.DIVIDENDS,
   110: TYPE.CORPORATE_BOND,
   112: TYPE.INVESTMENTS_INCOME,
+  124: TYPE.RETIREMENT,
   126: TYPE.CASHBACK_DEPOSIT,
   127: TYPE.CASHBACK_DEPOSIT,
   129: TYPE.GOVERNMENT_BOND,
   183: TYPE.GOVERNMENT_BOND,
   151: TYPE.MEDICAL_INSURANCE,
   153: TYPE.BORROW,
+  204: TYPE.RETIREMENT,
   512: TYPE.FOP,
 }
 
@@ -58,6 +61,7 @@ interface IncomeRecord {
   taxPdfoPaid: Decimal;
   taxMilitaryPaid: Decimal;
   taxCode: number;
+  taxCategory: string;
 }
 
 interface Totals {
@@ -129,10 +133,10 @@ const Home: NextPage = () => {
   const [error, setError] = useState<string>();
 
   function formatDecimal(value: Decimal) {
-    return `${new Intl.NumberFormat().format(value.toNumber())} ₴`;
+    return new Intl.NumberFormat('uk-UA', { style: 'currency', currency: 'UAH', currencyDisplay: 'narrowSymbol' }).format(value.toNumber());
   }
 
-  function getIncomes(xmlObject: XmlSchema) {
+  function getIncomes(xmlObject: XmlSchema): IncomeRecord[] {
     const body = xmlObject.DECLAR.DECLARBODY;
     const incomes: IncomeRecord[] = [];
     body.T1RXXXXG3S.forEach(({ '#text': date, '@_ROWNUM': row }) => {
@@ -140,7 +144,7 @@ const Home: NextPage = () => {
         return
       }
 
-      const [taxCode] = (body.T1RXXXXG13S.find(({ '@_ROWNUM': taxCodeRow }) => taxCodeRow === row)?.['#text'] as string).split(' - ');
+      const [taxCode, taxCategory] = (body.T1RXXXXG13S.find(({ '@_ROWNUM': taxCodeRow }) => taxCodeRow === row)?.['#text'] as string).split(' - ');
       const year = body.T1RXXXXG4.find(({ '@_ROWNUM': yearRow }) => yearRow === row)?.['#text'];
       const incomePaid = new Decimal(body.T1RXXXXG8.find(({ '@_ROWNUM': incomePaidRow }) => incomePaidRow === row)?.['#text'] || 0);
       const taxPdfoPaid = new Decimal(body.T1RXXXXG10.find(({ '@_ROWNUM': taxPaidRow }) => taxPaidRow === row)?.['#text'] || 0);
@@ -154,6 +158,7 @@ const Home: NextPage = () => {
         taxPdfoPaid: taxPdfoPaid,
         taxMilitaryPaid: !taxPdfoPaid.isZero() ? incomePaid.times(MILITARY_TAX_RATE).toDP(2) : new Decimal(0),
         taxCode: +taxCode,
+        taxCategory,
       });
     });
 
@@ -291,11 +296,12 @@ const Home: NextPage = () => {
       declarationNumbers.fop = declarationNumbers.fop.plus(record.incomeAccrued);
     }
 
-    if ([TYPE.CASHBACK_DEPOSIT, TYPE.CORPORATE_BOND].includes(type)) {
+    if ([TYPE.CASHBACK_DEPOSIT, TYPE.CORPORATE_BOND, TYPE.RETIREMENT].includes(type)) {
       declarationNumbers.other.incomeAccrued = declarationNumbers.other.incomeAccrued.plus(record.incomeAccrued);
       declarationNumbers.other.taxPdfoPaid = declarationNumbers.other.taxPdfoPaid.plus(record.taxPdfoPaid);
       declarationNumbers.other.taxMilitaryPaid = declarationNumbers.other.taxMilitaryPaid.plus(record.taxMilitaryPaid);
     }
+
     if ([TYPE.GOVERNMENT_BOND, TYPE.MEDICAL_INSURANCE, TYPE.BORROW].includes(type)) {
       declarationNumbers.noTaxIncome = declarationNumbers.noTaxIncome.plus(record.incomeAccrued);
     }
@@ -533,6 +539,14 @@ const Home: NextPage = () => {
               <div className="form-check form-check-inline">
                 <label>
                   <input className="form-check-input" type="checkbox"
+                         onChange={(event) => filterChange(event, TYPE.RETIREMENT)}
+                         checked={filter.has(TYPE.RETIREMENT)} />
+                  Пенсійні внески (10.13)
+                </label>
+              </div>
+              <div className="form-check form-check-inline">
+                <label>
+                  <input className="form-check-input" type="checkbox"
                          onChange={(event) => filterChange(event, TYPE.GOVERNMENT_BOND)}
                          checked={filter.has(TYPE.GOVERNMENT_BOND)} />
                   Державні облігації (11.3)
@@ -580,7 +594,7 @@ const Home: NextPage = () => {
               </tr>
             </thead>
             <tbody>
-            {filteredIncome.map(({ row, date, company, incomeAccrued, incomePaid, taxPdfoAccrued: taxAccrued, taxPdfoPaid, taxMilitaryPaid, taxCode }) => {
+            {filteredIncome.map(({ row, date, company, incomeAccrued, incomePaid, taxPdfoAccrued: taxAccrued, taxPdfoPaid, taxMilitaryPaid, taxCode, taxCategory }) => {
               return (
                 <tr key={row}>
                   <td>{date}</td>
@@ -590,7 +604,7 @@ const Home: NextPage = () => {
                   <td>{formatDecimal(taxAccrued)}</td>
                   <td>{formatDecimal(taxPdfoPaid)}</td>
                   <td>{formatDecimal(taxMilitaryPaid)}</td>
-                  <td>{taxCode.toString()}</td>
+                  <td><span title={taxCategory}>{taxCode.toString()}</span></td>
                 </tr>
               )
             })}
