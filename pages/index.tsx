@@ -8,8 +8,6 @@ import icon from '../public/icon.svg'
 import Image from 'next/image'
 import Toast, { TOAST_TYPE } from '../components/toast'
 
-const MILITARY_TAX_RATE = new Decimal('0.015');
-
 // 109 - дивіденди
 // 110 - корпоративні облігації
 // 111 - виграші та призи (мінфін)
@@ -118,6 +116,16 @@ interface XmlSchema {
         '#text': string,
         '@_ROWNUM': string
       }[],
+      /** military tax accrued */
+      T1RXXXXG11: {
+        '#text': string,
+        '@_ROWNUM': string
+      }[],
+      /** military tax paid */
+      T1RXXXXG12: {
+        '#text': string,
+        '@_ROWNUM': string
+      }[],
       /** tax code */
       T1RXXXXG13S: {
         '#text': string,
@@ -148,6 +156,8 @@ const Home: NextPage = () => {
       const year = body.T1RXXXXG4.find(({ '@_ROWNUM': yearRow }) => yearRow === row)?.['#text'];
       const incomePaid = new Decimal(body.T1RXXXXG8.find(({ '@_ROWNUM': incomePaidRow }) => incomePaidRow === row)?.['#text'] || 0);
       const taxPdfoPaid = new Decimal(body.T1RXXXXG10.find(({ '@_ROWNUM': taxPaidRow }) => taxPaidRow === row)?.['#text'] || 0);
+      const taxMilitaryPaid = new Decimal(body.T1RXXXXG12.find(({ '@_ROWNUM': taxPaidRow }) => taxPaidRow === row)?.['#text'] || 0);
+
       incomes.push({
         row,
         date: `${date} ${year}`,
@@ -156,7 +166,7 @@ const Home: NextPage = () => {
         incomePaid,
         taxPdfoAccrued: new Decimal(body.T1RXXXXG9.find(({ '@_ROWNUM': taxAccruedRow }) => taxAccruedRow === row)?.['#text'] || 0),
         taxPdfoPaid: taxPdfoPaid,
-        taxMilitaryPaid: !taxPdfoPaid.isZero() ? incomePaid.times(MILITARY_TAX_RATE).toDP(2) : new Decimal(0),
+        taxMilitaryPaid: taxMilitaryPaid,
         taxCode: +taxCode,
         taxCategory,
       });
